@@ -1,17 +1,12 @@
-# demo.py
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
-import sys
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from rank_bm25 import BM25Okapi
 from pydantic import BaseModel, Field, ValidationError
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -24,6 +19,8 @@ from app.prompts import (
     build_json_repair_messages,
     build_triage_messages,
 )
+from app.rag import LocalRAG, RAGResult
+
 
 # ---------------------------
 # Capstone requirements (only used for ASSESSMENT_GEN)
@@ -49,17 +46,17 @@ class Threat(BaseModel):
     type: str
     severity: str
     evidence: str
+    exploit_path: str
 
 
 class TriageOut(BaseModel):
     action: str = Field(..., description="ALLOW, ALLOW_WITH_GUARDRAILS, BLOCK")
-    risk: int = Field(..., ge=0, le=100)
+    risk_score: int = Field(..., ge=0, le=100)
+    risk_rationale: str
     threats: List[Threat] = Field(default_factory=list)
-    rationale: str
+    safe_response: str = ""
+    recommended_controls: List[str] = Field(default_factory=list)
 
-
-# For outputs we keep it simple: always write answer.md + answer.pdf
-# For assessment: also create assessment_brief.md/pdf, rubric.md/pdf, submission_checklist.md/pdf
 
 # ---------------------------
 # Simple PDF exporter (wrap lines)
@@ -68,17 +65,15 @@ class TriageOut(BaseModel):
 def md_to_pdf(md_text: str, pdf_path: Path, title: str = "") -> None:
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(pdf_path), pagesize=A4)
-    width, height = A4
+    width, height = A4  # noqa: F841
     margin = 50
     y = height - margin
 
     def draw_line(line: str, y_pos: float) -> float:
-        # basic wrapping by character count (good enough for demo)
         max_chars = 95
-        parts = [line[i:i+max_chars] for i in range(0, len(line), max_chars)] or [""]
+        parts = [line[i:i + max_chars] for i in range(0, len(line), max_chars)] or [""]
         for p in parts:
-            nonlocal_y = y_pos
-            c.drawString(margin, nonlocal_y, p)
+            c.drawString(margin, y_pos, p)
             y_pos -= 14
             if y_pos < margin:
                 c.showPage()
@@ -94,61 +89,8 @@ def md_to_pdf(md_text: str, pdf_path: Path, title: str = "") -> None:
     for raw in md_text.splitlines():
         line = raw.replace("\t", "    ")
         y = draw_line(line, y)
+
     c.save()
-
-
-# ---------------------------
-# Local RAG (BM25 over .md)
-# ---------------------------
-
-@dataclass
-class Doc:
-    path: Path
-    text: str
-    tokens: List[str]
-
-
-class LocalBM25RAG:
-    def __init__(self, kb_dir: Path):
-        self.kb_dir = kb_dir
-        self.docs: List[Doc] = []
-        self.bm25: Optional[BM25Okapi] = None
-
-    @staticmethod
-    def _tokenize(text: str) -> List[str]:
-        return re.findall(r"[A-Za-z0-9_]+", text.lower())
-
-    def build(self) -> None:
-        md_files = sorted(self.kb_dir.glob("*.md"))
-        docs: List[Doc] = []
-        for p in md_files:
-            try:
-                t = p.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                continue
-            toks = self._tokenize(t)
-            if toks:
-                docs.append(Doc(path=p, text=t, tokens=toks))
-        self.docs = docs
-        if not docs:
-            self.bm25 = None
-            return
-        self.bm25 = BM25Okapi([d.tokens for d in docs])
-
-    def retrieve(self, query: str, k: int = 3) -> str:
-        if not self.bm25 or not self.docs:
-            return ""
-        q = self._tokenize(query)
-        scores = self.bm25.get_scores(q)
-        ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
-
-        chunks = []
-        for idx in ranked:
-            d = self.docs[idx]
-            # Take first ~1200 chars as snippet (demo-friendly)
-            snippet = d.text.strip().replace("\r\n", "\n")[:1200]
-            chunks.append(f"[{d.path.name}]\n{snippet}\n")
-        return "\n".join(chunks).strip()
 
 
 # ---------------------------
@@ -159,11 +101,7 @@ JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 
 def extract_json(text: str) -> str:
-    """
-    Try to extract a JSON object from model output.
-    """
     text = text.strip()
-    # remove ```json fences if present
     text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s*```$", "", text)
     m = JSON_RE.search(text)
@@ -179,18 +117,14 @@ def llm_json(
     temperature: float = 0.2,
     repair_attempts: int = 2,
 ) -> Dict[str, Any]:
-    """
-    Call LLM expecting JSON. Repair if invalid.
-    """
     last = ""
-    for attempt in range(repair_attempts + 1):
+    for _attempt in range(repair_attempts + 1):
         resp = llm.chat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens)
         last = resp.text
         candidate = extract_json(resp.text)
         try:
             return json.loads(candidate)
         except Exception:
-            # repair
             messages = build_json_repair_messages(schema_text=schema_text, bad_output=resp.text)
             continue
     raise RuntimeError("Failed to produce valid JSON after repair attempts.\n\nLast output:\n" + last)
@@ -217,37 +151,27 @@ def make_case_dir(out_dir: Path, user_prompt: str, intent: str, action: str) -> 
 
 
 # ---------------------------
-# Generation logic
+# Postprocess helpers
 # ---------------------------
 
-def answer_generic(user_prompt: str, rag_snippets: str) -> str:
-    # Keep it neutral; optionally append sources line if snippets exist
-    srcs = []
-    for line in rag_snippets.splitlines():
-        m = re.match(r"^\[(.+?)\]$", line.strip())
-        if m:
-            srcs.append(m.group(1))
-    sources_line = ""
-    if srcs:
-        sources_line = "\n\nSources: " + ", ".join(dict.fromkeys(srcs).keys())
-    # The model itself will produce the answer; this is only for postprocessing if needed
-    return sources_line
+def append_sources_if_missing(answer_text: str, sources: List[str]) -> str:
+    if not sources:
+        return answer_text
+    if "Sources:" in answer_text:
+        return answer_text
+    uniq = list(dict.fromkeys(sources).keys())
+    return answer_text.rstrip() + "\n\nSources: " + ", ".join(uniq)
 
 
 def generate_assessment_artifacts(llm_answer: str) -> Dict[str, str]:
-    """
-    Minimal parser to split the model answer into 3 artifacts if possible.
-    If not found, fall back to the whole text for brief and create simple placeholders.
-    """
-    # Heuristics: look for headings
     text = llm_answer.strip()
+
     def find_section(title: str) -> str:
         pat = re.compile(rf"(?im)^\s*#+\s*{re.escape(title)}\s*$")
         m = pat.search(text)
         if not m:
             return ""
         start = m.end()
-        # next heading
         m2 = re.compile(r"(?im)^\s*#+\s*").search(text, start)
         end = m2.start() if m2 else len(text)
         return text[start:end].strip()
@@ -259,9 +183,23 @@ def generate_assessment_artifacts(llm_answer: str) -> Dict[str, str]:
     if not brief:
         brief = text
     if not rubric:
-        rubric = "## Marking Rubric\n\n- HD / D / C / P criteria (to be refined)\n- Alignment to learning outcomes\n- Security testing quality\n- Reporting and analysis quality\n- Ethics/compliance coverage\n"
+        rubric = (
+            "## Marking Rubric\n\n"
+            "- HD / D / C / P criteria (to be refined)\n"
+            "- Alignment to learning outcomes\n"
+            "- Security testing quality\n"
+            "- Reporting and analysis quality\n"
+            "- Ethics/compliance coverage\n"
+        )
     if not checklist:
-        checklist = "## Submission Checklist\n\n- Report submitted (PDF)\n- Code repository link\n- Prompt-injection test suite included\n- Metrics reported (ASR, FBR, JSON validity, citation coverage)\n- Ethics/compliance section included\n"
+        checklist = (
+            "## Submission Checklist\n\n"
+            "- Report submitted (PDF)\n"
+            "- Code repository link\n"
+            "- Prompt-injection test suite included\n"
+            "- Metrics reported (ASR, FBR, JSON validity, citation coverage)\n"
+            "- Ethics/compliance section included\n"
+        )
 
     return {
         "assessment_brief.md": brief if brief.startswith("#") else "# Assessment Brief\n\n" + brief,
@@ -276,15 +214,13 @@ def generate_assessment_artifacts(llm_answer: str) -> Dict[str, str]:
 
 def run_one(
     llm: OllamaClient,
-    rag: Optional[LocalBM25RAG],
+    rag: Optional[LocalRAG],
     out_dir: Path,
     model: str,
     user_prompt: str,
     capstone: bool,
 ) -> Tuple[Path, IntentOut, TriageOut, str]:
-    rag_snippets = rag.retrieve(user_prompt, k=3) if rag else ""
-
-    # 1) Intent routing
+    # 1) Intent routing FIRST (so retrieval can be intent-aware)
     intent_schema = '{"intent":"GENERIC_QA|ASSESSMENT_GEN","confidence":0.0-1.0}'
     intent_json = llm_json(
         llm=llm,
@@ -299,17 +235,32 @@ def run_one(
     if intent not in ("GENERIC_QA", "ASSESSMENT_GEN"):
         intent = "GENERIC_QA"
 
-    # 2) Security triage
+    # 2) Retrieval SECOND (intent-aware + confidence gating)
+    rag_meta: RAGResult = RAGResult([], [], "low", 0.0)
+    rag_snippets = ""
+    if rag:
+        rag_meta = rag.retrieve(user_prompt, k=3, intent=intent, return_meta=True)  # type: ignore
+        # Only feed snippets to the LLM if retrieval is confident
+        if rag_meta.confidence == "high":
+            rag_snippets = "\n\n".join(rag_meta.snippets)
+        else:
+            rag_snippets = ""  # prevents irrelevant sources from polluting the answer
+
+    # 3) Security triage (schema must match app/prompts.py triage schema)
     triage_schema = (
-        '{ "action":"ALLOW|ALLOW_WITH_GUARDRAILS|BLOCK", "risk":0-100, '
-        '"threats":[{"type":"...","severity":"low|medium|high","evidence":"..."}], "rationale":"..." }'
+        '{ "action":"ALLOW|ALLOW_WITH_GUARDRAILS|BLOCK", '
+        '"risk_score":0-100, '
+        '"risk_rationale":"...", '
+        '"threats":[{"type":"...","severity":"LOW|MEDIUM|HIGH|CRITICAL","evidence":"...","exploit_path":"..."}], '
+        '"safe_response":"...", '
+        '"recommended_controls":["..."] }'
     )
     triage_json = llm_json(
         llm=llm,
         model=model,
         messages=build_triage_messages(user_prompt, rag_snippets=rag_snippets),
         schema_text=triage_schema,
-        max_tokens=350,
+        max_tokens=420,
         temperature=0.0,
     )
     triage_out = TriageOut(**triage_json)
@@ -317,27 +268,42 @@ def run_one(
     if action not in ("ALLOW", "ALLOW_WITH_GUARDRAILS", "BLOCK"):
         action = "ALLOW"
 
-    # Create case directory early so we can always write debug even if model fails later
+    # Create case directory early
     case_dir = make_case_dir(out_dir, user_prompt, intent, action)
 
     # Save intent + triage
     (case_dir / "intent.json").write_text(intent_out.model_dump_json(indent=2), encoding="utf-8")
     (case_dir / "triage.json").write_text(triage_out.model_dump_json(indent=2), encoding="utf-8")
 
-    # 3) Enforcement
+    # Save retrieval debug (good for interview explanation)
+    (case_dir / "retrieval.json").write_text(
+        json.dumps(
+            {
+                "confidence": rag_meta.confidence,
+                "top_score": rag_meta.top_score,
+                "sources": rag_meta.sources,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    # 4) Enforcement
     if action == "BLOCK":
-        safe_md = (
-            "# Request Blocked\n\n"
-            "Your request appears to be unsafe or attempts to bypass system controls. "
-            "I can help with a safer alternative (e.g., explaining concepts at a high level, "
-            "or providing policy-compliant guidance).\n"
-        )
+        safe = triage_out.safe_response.strip()
+        if not safe:
+            safe = (
+                "Your request appears to be unsafe or attempts to bypass system controls. "
+                "I can help with a safer alternative (e.g., explaining concepts at a high level, "
+                "or providing policy-compliant guidance)."
+            )
+        safe_md = "# Request Blocked\n\n" + safe + "\n"
         (case_dir / "answer.md").write_text(safe_md, encoding="utf-8")
         md_to_pdf(safe_md, case_dir / "answer.pdf", title="Blocked Request")
-        (case_dir / "answer.json").write_text(json.dumps({"blocked": True}, indent=2), encoding="utf-8")
+        (case_dir / "answer.json").write_text(json.dumps({"blocked": True, "safe_response": safe}, indent=2), encoding="utf-8")
         return case_dir, intent_out, triage_out, safe_md
 
-    # 4) Generation (split prompts by intent; capstone only for assessment)
+    # 5) Generation (capstone only for ASSESSMENT_GEN)
     if intent == "ASSESSMENT_GEN":
         messages = build_assessment_messages(
             user_prompt,
@@ -348,29 +314,27 @@ def run_one(
         temperature = 0.2
     else:
         messages = build_generic_qa_messages(user_prompt, rag_snippets=rag_snippets)
-        max_tokens = 650  # allow more detail than short paragraph
+        max_tokens = 650
         temperature = 0.2
 
     resp = llm.chat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens)
     answer_text = resp.text.strip()
 
-    # Save raw answer JSON debug
+    # Save raw answer debug
     (case_dir / "answer.json").write_text(json.dumps({"text": answer_text}, indent=2), encoding="utf-8")
 
-    # 5) Postprocess: ensure sources line for GENERIC_QA if retrieval exists
+    # 6) Postprocess
     if intent == "GENERIC_QA":
-        extra_sources = answer_generic(user_prompt, rag_snippets)
-        if extra_sources and "Sources:" not in answer_text:
-            answer_text = answer_text.rstrip() + extra_sources
+        # Only add sources if retrieval was confident & we actually used them.
+        answer_text = append_sources_if_missing(answer_text, rag_meta.sources if rag_meta.confidence == "high" else [])
 
         md = "# Answer\n\n" + answer_text + "\n"
         (case_dir / "answer.md").write_text(md, encoding="utf-8")
         md_to_pdf(md, case_dir / "answer.pdf", title="Answer")
 
-    # 6) Assessment artifacts
     if intent == "ASSESSMENT_GEN":
         artifacts = generate_assessment_artifacts(answer_text)
-        # Always also write an overall answer.md/pdf
+
         overall_md = "# Assessment Output\n\n" + answer_text + "\n"
         (case_dir / "answer.md").write_text(overall_md, encoding="utf-8")
         md_to_pdf(overall_md, case_dir / "answer.pdf", title="Assessment Output")
@@ -384,7 +348,7 @@ def run_one(
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Secure Guarded LLM Demo (Option B: Intent Routing)")
+    ap = argparse.ArgumentParser(description="Secure Guarded LLM Demo")
     ap.add_argument("--interactive", action="store_true", help="Interactive mode")
     ap.add_argument("--rag", type=str, default="", help="Knowledge base directory (markdown files)")
     ap.add_argument("--out", type=str, default="out", help="Output directory")
@@ -397,15 +361,13 @@ def main() -> None:
 
     llm = OllamaClient()
 
-    rag = None
+    rag: Optional[LocalRAG] = None
     if args.rag:
         kb = Path(args.rag)
         if kb.exists() and kb.is_dir():
-            rag = LocalBM25RAG(kb)
-            rag.build()
+            rag = LocalRAG(kb_dir=kb, max_chars=2000)
 
-    title = "Secure Guarded LLM Demo (Option B: Intent Routing)"
-    print(title)
+    print("Secure Guarded LLM Demo")
     print("Type 'exit' to quit.\n")
 
     if args.interactive:
@@ -429,9 +391,18 @@ def main() -> None:
                     user_prompt=user_prompt,
                     capstone=args.capstone,
                 )
+
                 print(f"\nIntent: {intent_out.intent} (conf={intent_out.confidence:.2f})")
-                print(f"Decision: {triage_out.action} | Risk: {triage_out.risk}\n")
-                # Print a short preview
+                print(f"Decision: {triage_out.action} | Risk: {triage_out.risk_score}")
+
+                # Show retrieval debug so you can explain it in interview
+                try:
+                    rj = json.loads((case_dir / "retrieval.json").read_text(encoding="utf-8"))
+                    print(f"Retrieval: {rj.get('confidence')} | sources={rj.get('sources')}")
+                except Exception:
+                    pass
+
+                print()
                 preview = answer_text.strip().splitlines()
                 preview_text = "\n".join(preview[:8]).strip()
                 if preview_text:
