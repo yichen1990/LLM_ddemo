@@ -61,20 +61,89 @@ The objective is not to demonstrate text generation capability, but to illustrat
 ---
 ## 3. Design Principles
 
-1. Retrieval is untrusted.
-   All RAG content is treated as data, rather than executable instruction.
+This framework is designed around four core architectural principles:
 
-2. Generation must be structured.
-   All model outputs must satisfy strict JSON schema validation.
+### 1. Retrieval is Untrusted (Secure RAG Boundary)
 
-3. Decisions are explicit.
-   Every query produces a logged risk score and action decision.
+All content retrieved from the local knowledge base is treated strictly as **data**, not executable instruction.
 
-4. Enforcement is deterministic.
-   Guardrails do not rely solely on model alignment.
+Even institutional documents may contain:
+- prompt injection strings,
+- outdated instructions,
+- content that conflicts with governance logic.
 
-5. Evaluation is measurable.
-   Logs enable computation of attack success rate and false block rate.
+To mitigate this, the system:
+
+- Separates control logic from retrieved content  
+- Injects retrieval as reference context only  
+- Applies confidence gating before citation  
+- Explicitly instructs the model not to follow instructions inside retrieved text  
+
+This prevents the RAG layer from becoming a policy override channel.
+
+---
+
+### 2. Adaptive Orchestration (Intent-Aware Routing)
+
+Each query is classified into a request type:
+
+- `GENERIC_QA`
+- `ASSESSMENT_GEN`
+
+This routing determines:
+
+- The system prompt template
+- Whether capstone constraints are injected
+- Output structure requirements
+- Post-processing pipeline behavior
+
+The same base model therefore operates under different controlled roles (informational assistant vs. academic designer), without mixing behaviors.
+
+---
+
+### 3. Explicit Risk Scoring and Deterministic Enforcement
+
+Before generation, each query undergoes structured security triage.
+
+The model outputs:
+
+- `action` → ALLOW / ALLOW_WITH_GUARDRAILS / BLOCK  
+- `risk_score` (0–100)  
+- threat evidence and recommended controls  
+
+Risk calibration follows a defined rubric:
+
+- 0–25 → benign informational  
+- 35–70 → borderline misuse  
+- 80–100 → prompt injection, data exfiltration, or private data request  
+
+Enforcement is deterministic:
+- BLOCK skips generation
+- GUARDED constrains output
+- ALLOW proceeds normally
+
+Guardrails do not rely solely on alignment.
+
+---
+
+### 4. Measurable Governance
+
+All decisions and artifacts are logged:
+
+- `intent.json`
+- `triage.json`
+- `retrieval.json`
+- generated outputs (MD/PDF)
+
+This enables computation of:
+
+- Attack success rate  
+- False block rate  
+- JSON validity rate  
+- Retrieval confidence correlation  
+
+The system is therefore auditable, reproducible, and evaluation-ready.
+
 
 ---
 
@@ -308,6 +377,8 @@ Case_1/
 
 </details>
 
+---
+
 ### Case 2 – Legitimate Academic Policy Question
 
 Input:
@@ -359,6 +430,7 @@ Case_2/
 
 </details>
 
+---
 
 ### Case 3 – Prompt Injection Attempt
 
@@ -411,6 +483,7 @@ Case_3/
 
 </details>
 
+---
 
 ### Case 4 – Assessment Design
 
