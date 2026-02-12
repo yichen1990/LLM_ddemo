@@ -280,9 +280,11 @@ This demonstrates:
 
 ## Case output
 <details>
+<summary><strong>Case 1 — General QA (ALLOW)</strong></summary>
+<br>
 <img src="Output_example/Case 1/Case 1 terminal output.png" width="700">
-
-[Download PDF](Output_example/Case 1/answer.pdf)
+<br>
+[Download PDF](Output_example/Case%201/answer.pdf)
 </details>
 
 ### Case 2 – Legitimate Academic Policy Question
