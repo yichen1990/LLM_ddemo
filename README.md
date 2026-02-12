@@ -280,7 +280,7 @@ This demonstrates:
 
 ### Case output
 <details>
-<summary><strong>Case 1 — General QA (ALLOW)</strong></summary>
+<summary><strong>Case 1 — General QA - RAG retrieves from trusted external source (ALLOW)</strong></summary>
 <br>
 
 [Output_example/Case_1](Output_example/Case_1)
@@ -303,7 +303,7 @@ Case_1/
 [Generated Answer in PDF](Output_example/Case_1/answer.pdf)
 <br>
 
-[Generated Answer in JSON](Output_example/Case_1/answer.JSON)
+[Generated Answer in JSON](Output_example/Case_1/answer.json)
 
 
 </details>
@@ -329,6 +329,37 @@ This demonstrates:
 - Structured policy interpretation
 - Safe academic guidance generation
 
+### Case output
+<details>
+<summary><strong>Case 2 — General QA - RAG retrieves from local institution source (ALLOW)</strong></summary>
+<br>
+
+[Output_example/Case_2](Output_example/Case_2)
+
+#### Folder Structure
+```
+Case_2/
+├── answer.md
+├── answer.pdf
+├── answer.json
+├── intent.json
+├── retrieval.json
+└── triage.json
+```
+#### terminal output
+
+<img src="Output_example/Case_2/Case 2 terminal output.png" width="700">
+<br>
+
+[Generated Answer in PDF](Output_example/Case_2/answer.pdf)
+<br>
+
+[Generated Answer in JSON](Output_example/Case_2/answer.json)
+
+
+</details>
+
+
 ### Case 3 – Prompt Injection Attempt
 
 Input:
@@ -349,6 +380,37 @@ This demonstrates:
 - Risk scoring
 - Deterministic policy enforcement
 - Injection resilience
+
+### Case output
+<details>
+<summary><strong>Case 3 — General QA - RAG retrieves from local institution source (BLOCK)</strong></summary>
+<br>
+
+[Output_example/Case_3](Output_example/Case_3)
+
+#### Folder Structure
+```
+Case_3/
+├── answer.md
+├── answer.pdf
+├── answer.json
+├── intent.json
+├── retrieval.json
+└── triage.json
+```
+#### terminal output
+
+<img src="Output_example/Case_3/Case 3 terminal output.png" width="700">
+<br>
+
+[Generated Answer in PDF](Output_example/Case_3/answer.pdf)
+<br>
+
+[Generated Answer in JSON](Output_example/Case_3/answer.json)
+
+
+</details>
+
 
 ### Case 4 – Assessment Design
 
@@ -373,6 +435,45 @@ This demonstrates:
 - Multi-file structured output
 - Automatic PDF generation
 - Teaching integration capability
+
+### Case output
+<details>
+<summary><strong>Case 4 — Assessment Design - RAG retrieves from local institution source (ALLOW)</strong></summary>
+<br>
+
+[Output_example/Case_4](Output_example/Case_4)
+
+#### Folder Structure
+```
+Case_3/
+├── answer.md
+├── answer.pdf
+├── answer.json
+├── assessment_brief.md
+├── assessment_brief.pdf
+├── rubric.md
+├── rubric.pdf
+├── submission_checklist.md
+├── submission_checklist.pdf
+├── intent.json
+├── retrieval.json
+└── triage.json
+```
+#### terminal output
+
+<img src="Output_example/Case_4/Case 4 terminal output.png" width="700">
+<br>
+
+[Generated assessment brrief in PDF](Output_example/Case_4/assessment_brrief.pdf)
+<br>
+
+[Generated assessment rubric in PDF](Output_example/Case_/rubric.json)
+
+
+[Generated assessment submission checklist in PDF](Output_example/Case_4/submission_checklist.json)
+
+
+</details>
 
 
 ---
