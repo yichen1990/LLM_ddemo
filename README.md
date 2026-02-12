@@ -63,27 +63,27 @@ The objective is not to demonstrate text generation capability, but to illustrat
 
 This framework is designed around four core architectural principles:
 
-### 1. Retrieval is Untrusted (Secure RAG Boundary)
+- Retrieval is Untrusted (Secure RAG Boundary)
 
-All content retrieved from the local knowledge base is treated strictly as **data**, not executable instruction.
+  All content retrieved from the local knowledge base is treated strictly as **data**, not executable instruction.
 
-Even institutional documents may contain:
-- prompt injection strings,
-- outdated instructions,
-- content that conflicts with governance logic.
+  Even institutional documents may contain:
+  - prompt injection strings,
+  - outdated instructions,
+  - content that conflicts with governance logic.
 
-To mitigate this, the system:
+  To mitigate this, the system:
 
-- Separates control logic from retrieved content  
-- Injects retrieval as reference context only  
-- Applies confidence gating before citation  
-- Explicitly instructs the model not to follow instructions inside retrieved text  
+  - Separates control logic from retrieved content  
+  - Injects retrieval as reference context only  
+  - Applies confidence gating before citation  
+  - Explicitly instructs the model not to follow instructions inside retrieved text  
 
-This prevents the RAG layer from becoming a policy override channel.
+  This prevents the RAG layer from becoming a policy override channel.
 
 ---
 
-### 2. Adaptive Orchestration (Intent-Aware Routing)
+### 3.2. Adaptive Orchestration (Intent-Aware Routing)
 
 Each query is classified into a request type:
 
@@ -101,7 +101,7 @@ The same base model therefore operates under different controlled roles (informa
 
 ---
 
-### 3. Explicit Risk Scoring and Deterministic Enforcement
+### 3.3. Explicit Risk Scoring and Deterministic Enforcement
 
 Before generation, each query undergoes structured security triage.
 
@@ -126,7 +126,7 @@ Guardrails do not rely solely on alignment.
 
 ---
 
-### 4. Measurable Governance
+### 3.4. Measurable Governance
 
 All decisions and artifacts are logged:
 
