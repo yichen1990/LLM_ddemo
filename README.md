@@ -63,9 +63,9 @@ The objective is not to demonstrate text generation capability, but to illustrat
 
 This framework is designed around four core architectural principles:
 
-**- Retrieval is Untrusted (Secure RAG Boundary)**
+- **Retrieval is Untrusted (Secure RAG Boundary)**
 
-  All content retrieved from the local knowledge base is treated strictly as **data**, not executable instruction.
+  All content retrieved from the local knowledge base is treated strictly as data, not executable instruction.
 
   Even institutional documents may contain:
   - prompt injection strings,
