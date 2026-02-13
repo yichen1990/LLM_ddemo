@@ -3,10 +3,22 @@
 
 ## Executive Summary
 
-This project presents a risk-aware, agentic LLM orchestration framework designed for secure academic deployment. 
-The system integrates intent routing, adversarial triage, structured output enforcement, and automated artifact generation within a layered governance architecture. 
-Unlike conventional chatbot demonstrations, the framework emphasizes controlled orchestration, reproducibility, and measurable evaluation under adversarial conditions. 
-It is designed both as a teaching instrument for secure LLM system design and as a research-oriented prototype for policy-governed deployment in academic environments.
+This project presents a risk-aware, agentic LLM orchestration framework for secure academic deployment. 
+It integrates intent routing, adversarial risk triage, structured output enforcement, and automated artifact generation within a layered control architecture. 
+Unlike conventional chatbot demonstrations, the system emphasizes controlled execution, reproducibility, and measurable behavior under adversarial and policy-constrained conditions.
+---
+
+## Alignment with Demonstration Requirements
+
+This project demonstrates:
+
+- explicit LLM API invocation and control
+- structured JSON generation and parsing
+- follow-up processing via schema validation and repair
+- secure RAG with untrusted retrieval boundaries
+- copilot-style artifact generation for academic workflows
+
+All functionality is exercised through live execution rather than static examples.
 
 ---
 
@@ -57,6 +69,15 @@ This system introduces a multi-stage LLM pipeline integrating:
 - Red-team dataset logging and evaluation
 
 The objective is not to demonstrate text generation capability, but to illustrate secure, policy-governed LLM orchestration suitable for institutional deployment.
+
+This project is intentionally **not**:
+
+- a prompt-engineering showcase
+- a fine-tuned model demonstration
+- a replacement for institutional decision-making
+- a fully autonomous agent system
+
+Instead, it focuses on **orchestration, control, and evaluation** of LLM behavior under explicit governance and security constraints. The system overviewed is shown below:
 
 <br>
 <img src="/System architecture.png" width="700">
@@ -123,10 +144,17 @@ This framework is designed around four core architectural principles:
 
   Enforcement is deterministic:
   - BLOCK skips generation
-  - GUARDED constrains output
+  - ALLOW_WITH_GUARDRAILS constrains output
   - ALLOW proceeds normally
 
-  Guardrails do not rely solely on alignment.
+  In particular, ALLOW_WITH_GUARDRAILS represents a controlled middle state in which the system remains helpful while preventing policy circumvention.
+
+  In this mode:
+  - responses are reframed
+  - actionable or evasive guidance is removed
+  - policy-aligned explanations are enforced
+
+  This enables proportional control rather than binary allow/deny behavior.
 
 ---
 
@@ -249,6 +277,17 @@ curl http://localhost:11434/api/tags
 ```
 
 **Note:** Ensure the Ollama service is running before executing the demo pipeline.
+
+### Rationale for Local Deployment
+
+The framework is demonstrated using a fully local LLM deployment to ensure:
+
+- auditability of model behavior
+- reproducibility of experiments
+- isolation from proprietary APIs
+- suitability for institutional and teaching environments
+
+All orchestration, governance, and enforcement logic is independent of the underlying model and can be reused across different LLM backends.
 
 ---
 
