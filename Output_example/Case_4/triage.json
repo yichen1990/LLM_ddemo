@@ -1,8 +1,0 @@
-{
-  "action": "ALLOW",
-  "risk_score": 5,
-  "risk_rationale": "",
-  "threats": [],
-  "safe_response": "This is an example of a safe response.",
-  "recommended_controls": []
-}

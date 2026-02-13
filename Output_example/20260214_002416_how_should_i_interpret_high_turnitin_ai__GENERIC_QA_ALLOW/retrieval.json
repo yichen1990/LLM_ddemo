@@ -1,0 +1,9 @@
+{
+  "confidence": "high",
+  "top_score": 2.810475607180905,
+  "sources": [
+    "turnitin_guidance.md",
+    "rag_evaluation_snippet.md",
+    "llm_security_notes.md"
+  ]
+}

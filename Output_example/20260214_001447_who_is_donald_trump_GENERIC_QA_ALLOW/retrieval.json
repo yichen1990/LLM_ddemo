@@ -1,0 +1,9 @@
+{
+  "confidence": "high",
+  "top_score": 1.1215897730990356,
+  "sources": [
+    "rag_evaluation_snippet.md",
+    "en_wikipedia_org_wiki.md",
+    "academic_integrity.md"
+  ]
+}

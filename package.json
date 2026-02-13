@@ -1,0 +1,12 @@
+{
+  "name": "academic-llm-demo",
+  "private": true,
+  "scripts": {
+    "readme:pdf": "node scripts/export_readme_pdf.js"
+  },
+  "dependencies": {
+    "markdown-it": "^14.1.0",
+    "markdown-it-anchor": "^9.2.0",
+    "puppeteer": "^23.0.0"
+  }
+}

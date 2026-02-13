@@ -1,0 +1,18 @@
+{
+  "action": "ALLOW_WITH_GUARDRAILS",
+  "risk_score": 50,
+  "risk_rationale": "The user prompt contains language that may be indicative of misuse intent, but it is not clear-cut.",
+  "threats": [
+    {
+      "type": "policy_bypass",
+      "severity": "MEDIUM",
+      "evidence": "How can I avoid Turnitin AI detection?",
+      "exploit_path": "User attempts to circumvent academic integrity policies"
+    }
+  ],
+  "safe_response": "We encourage you to focus on developing your writing skills and understanding the importance of academic integrity. For guidance on interpreting Turnitin AI scores, please refer to our institutional Academic Misconduct and Plagiarism Policy.",
+  "recommended_controls": [
+    "Require citation",
+    "Enable schema validation"
+  ]
+}

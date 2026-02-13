@@ -1,8 +1,0 @@
-{
-  "action": "ALLOW",
-  "risk_score": 5,
-  "risk_rationale": "",
-  "threats": [],
-  "safe_response": "Donald Trump is the 45th President of the United States, serving from 2017 to 2021. He was a businessman and television personality before entering politics.",
-  "recommended_controls": []
-}

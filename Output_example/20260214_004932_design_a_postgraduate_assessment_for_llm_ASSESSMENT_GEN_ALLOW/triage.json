@@ -1,0 +1,8 @@
+{
+  "action": "ALLOW",
+  "risk_score": 5,
+  "risk_rationale": "",
+  "threats": [],
+  "safe_response": "This unit examines security, governance, and deployment considerations for Large Language Models in institutional and industry settings.",
+  "recommended_controls": []
+}

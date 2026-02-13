@@ -1,0 +1,8 @@
+{
+  "action": "ALLOW",
+  "risk_score": 5,
+  "risk_rationale": "",
+  "threats": [],
+  "safe_response": "You can interpret a high Turnitin AI score by considering the probabilistic signals it provides, alongside academic judgment. Refer to our guidance on interpreting Turnitin AI detection scores within an academic context.",
+  "recommended_controls": []
+}

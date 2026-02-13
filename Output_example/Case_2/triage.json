@@ -1,8 +1,0 @@
-{
-  "action": "ALLOW",
-  "risk_score": 5,
-  "risk_rationale": "",
-  "threats": [],
-  "safe_response": "You can interpret a high Turnitin AI score as an indication that the submission may contain AI-generated content. However, it's essential to consider other factors such as writing consistency and conceptual understanding demonstrated in the document.",
-  "recommended_controls": []
-}

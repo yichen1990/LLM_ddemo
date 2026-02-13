@@ -85,7 +85,7 @@ This project is intentionally **not**:
 Instead, it focuses on **orchestration, control, and evaluation** of LLM behavior under explicit governance and security constraints. The system overviewed is shown below:
 
 <br>
-<img src="/System architecture.png" width="800">
+<img src="/System_architecture.png" width="800">
 <br>
 
 ---
@@ -435,7 +435,7 @@ Case_1/
 ```
 #### terminal output
 
-<img src="Output_example/Case_1/Case 1 terminal output.png" width="700">
+<img src="Output_example/Case_1/Case_1_terminal_output.png" width="700">
 <br>
 
 [Generated Answer in PDF](Output_example/Case_1/answer.pdf)
@@ -489,7 +489,7 @@ Case_2/
 ```
 #### terminal output
 
-<img src="Output_example/Case_2/Case 2 terminal output.png" width="700">
+<img src="Output_example/Case_2/Case_2_terminal_output.png" width="700">
 <br>
 
 [Generated Answer in PDF](Output_example/Case_2/answer.pdf)
@@ -543,7 +543,7 @@ Case_3/
 ```
 #### terminal output
 
-<img src="Output_example/Case_3/Case 3 terminal output.png" width="700">
+<img src="Output_example/Case_3/Case_3_terminal_output.png" width="700">
 <br>
 
 [Generated Answer in PDF](Output_example/Case_3/answer.pdf)
@@ -607,7 +607,7 @@ Case_3/
 ```
 #### terminal output
 
-<img src="Output_example/Case_4/Case 4 terminal output.png" width="700">
+<img src="Output_example/Case_4/Case_4_terminal_output.png" width="700">
 <br>
 
 [Generated assessment brrief in PDF](Output_example/Case_4/assessment_brief.pdf)

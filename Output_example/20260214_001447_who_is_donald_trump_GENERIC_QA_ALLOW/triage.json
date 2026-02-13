@@ -1,0 +1,8 @@
+{
+  "action": "ALLOW",
+  "risk_score": 0,
+  "risk_rationale": "",
+  "threats": [],
+  "safe_response": "",
+  "recommended_controls": []
+}
